@@ -1,6 +1,6 @@
 import os
-import openai
 from dotenv import load_dotenv
+from openai import OpenAI
 from prompt_templates import prompt_templates
 
 
@@ -17,10 +17,10 @@ class CodeReviewer:
         self.api_key = os.getenv("OPENAI_API_KEY")
         self.model_version = os.getenv("OPENAI_MODEL_VERSION")
 
-        if self.api_key:
-            openai.api_key = self.api_key
-        else:
+        if not self.api_key:
             raise EnvironmentError("OPENAI_API_KEY not found in environment variables.")
+
+        self.client = OpenAI(api_key=self.api_key)
 
     def format_prompt(self, code: str, language_choice: str, tone_choice: str) -> str:
         tone_segment = f'Use a {tone_choice} tone:'
@@ -43,7 +43,6 @@ class CodeReviewer:
                 raise ValueError(f"Unsupported language: {language_choice}")
 
         prompt = language_segment + tone_segment + code_segment
-        print(prompt)
         return prompt
 
     def get_code_feedback(self, code: str, language_choice: str, tone_choice: str) -> dict:
@@ -52,12 +51,12 @@ class CodeReviewer:
 
         prompt = self.format_prompt(code, language_choice, tone_choice)
 
-        response = openai.ChatCompletion.create(
+        response = self.client.chat.completions.create(
             model=self.model_version,
             messages=[{"role": "user", "content": prompt}]
         )
 
-        feedback = response.choices[0].message["content"]
+        feedback = response.choices[0].message.content
         usage = response.usage
 
         pricing = self.MODEL_PRICING.get(self.model_version)
